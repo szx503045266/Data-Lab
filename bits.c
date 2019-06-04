@@ -139,7 +139,8 @@ NOTES:
  *   Rating: 1
  */
 int bitAnd(int x, int y) {
-  return 2;
+  int tp = (~x) | (~y);
+  return ~tp;
 }
 
 
@@ -152,15 +153,8 @@ int bitAnd(int x, int y) {
  *   Rating: 2
  */
 int getByte(int x, int n) {
-
-
-
-
-
-
-
-  return 2;
-
+  int m = n << 3;
+  return (x >> m) & 255;  //255即11111111，与该数进行与操作后后8位不变，前24位全变为0
 }
 /* 
  * logicalShift - shift x to the right by n, using a logical shift
@@ -171,7 +165,8 @@ int getByte(int x, int n) {
  *   Rating: 3 
  */
 int logicalShift(int x, int n) {
-  return 2;
+  int tp = (1 << 31) >> n << 1;  //该数前n位是1，后32-n位都是0
+  return (x >> n) & ~tp;
 }
 /*
  * bitCount - returns count of number of 1's in word
@@ -181,7 +176,22 @@ int logicalShift(int x, int n) {
  *   Rating: 4
  */
 int bitCount(int x) {
-  return 2;
+  int count;
+  int tpMask1 = 0x55 | (0x55 << 8);
+  int mask1 = tpMask1 | (tpMask1 << 16);  //01010101 01010101 01010101 01010101
+  int tpMask2 = 0x33 | (0x33 << 8);
+  int mask2 = tpMask2 | (tpMask2 << 16);  //00110011 00110011 00110011 00110011
+  int tpMask3 = 0x0f | (0x0f << 8);
+  int mask3 = tpMask3 | (tpMask3 << 16);  //00001111 00001111 00001111 00001111
+  int mask4 = 0xff | (0xff << 16);        //00000000 11111111 00000000 11111111
+  int mask5 = 0xff | (0xff << 8);         //00000000 00000000 11111111 11111111
+  count = (x & mask1) + ((x>>1) & mask1);  //每两位一组，先计算低位中1的个数，右移1位后再计算高位中1的个数
+  count = (count & mask2) + ((count >> 2) & mask2);  //每4位一组，先计算低位的两位，右移2位后再计算高位两位
+  //从下面这层开始，可以先将移位前和移位后的数相加再跟掩码进行与操作，原因以8位一组为例：因为8个位上最多能有8个1，二进制8所占位数小于4，能在与操作时被00001111的四位1覆盖,从而得到保留
+  count = (count + (count >> 4)) & mask3;  //每8位一组
+  count = (count + (count >> 8)) & mask4;  //每16位一组
+  count = (count + (count >> 16)) & mask5;  //总共32位为一组，将前16位的结果与后16位的结果相加即得最终答案
+  return count;
 }
 /* 
  * bang - Compute !x without using !
@@ -191,7 +201,8 @@ int bitCount(int x) {
  *   Rating: 4 
  */
 int bang(int x) {
-  return 2;
+  int y = (~x) + 1;  //得到x的补码
+  return ((x | y) >> 31) + 1;  //原码与补码或操作后取其最高位，再加1可得结果
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -200,7 +211,7 @@ int bang(int x) {
  *   Rating: 1
  */
 int tmin(void) {
-  return 2;
+  return 1 << 31;  //即0x80000000
 }
 /* 
  * fitsBits - return 1 if x can be represented as an 
@@ -212,7 +223,8 @@ int tmin(void) {
  *   Rating: 2
  */
 int fitsBits(int x, int n) {
-  return 2;
+  x = x >> (~((~n)+1));  //x右移n-1位
+  return !(~x) | !x;  //剩余位数全为1或全为0就返回1
 }
 /* 
  * divpwr2 - Compute x/(2^n), for 0 <= n <= 30
@@ -223,7 +235,9 @@ int fitsBits(int x, int n) {
  *   Rating: 2
  */
 int divpwr2(int x, int n) {
-    return 2;
+	int mask = ~((1 << 31) >> 31 << n);  //该数后n位是1，前32-n位为0
+	int b = (x >> 31) & mask;  //构造偏移量，x为正时偏移量为0，为负时偏移梁为2^n-1
+	return (x + b) >> n;  //加上偏移量后再移位
 }
 /* 
  * negate - return -x 
@@ -233,7 +247,7 @@ int divpwr2(int x, int n) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  return (~x) + 1;  //计算-x的补码
 }
 /* 
  * isPositive - return 1 if x > 0, return 0 otherwise 
@@ -243,7 +257,7 @@ int negate(int x) {
  *   Rating: 3
  */
 int isPositive(int x) {
-  return 2;
+  return (!x) ^ !(x >> 31);  //先要确保x<>0，然后再移位判断是大于0还是小于0
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -253,7 +267,12 @@ int isPositive(int x) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+  int a = y + (~x) + 1;  //计算y-x
+  int xs = x >> 31;  //得到x的符号
+  int ys = y >> 31;  //得到y的符号
+  int sf = !(xs ^ ys);  //判断x与y的符号是否相同，相同为1，不同为0
+  int as = a >> 31;  //得到y-x结果的符号
+  return ((!sf) & xs) | (sf & !(as));  //若x与y符号不同，结果取决于x的符号；若相同，结果取决于求得的差的符号
 }
 /*
  * ilog2 - return floor(log base 2 of x), where x > 0
@@ -263,7 +282,13 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4
  */
 int ilog2(int x) {
-  return 2;
+  int count;
+  count = (!!(x >> 16)) << 4;  //判断前16位中是否有1，若有，则count记为1<<4，否则为0
+  count = count + ((!!(x >> (count + 8))) << 3);  //若前16位中有1，则判断前16位中的前8位是否有1，若前16位中无1，则判断后16位中的前8位是否有1；若有1，则count加8
+  count = count + ((!!(x >> (count + 4))) << 2);  //后面同理，根据前面的结果选择一个区域的前4位判断是否有1
+  count = count + ((!!(x >> (count + 2))) << 1);
+  count = count + (!!(x >> (count + 1)));  //最终确定1所在的最高位置
+  return count;
 }
 /* 
  * float_neg - Return bit-level equivalent of expression -f for
@@ -277,7 +302,16 @@ int ilog2(int x) {
  *   Rating: 2
  */
 unsigned float_neg(unsigned uf) {
- return 2;
+  unsigned int tp1 = 0xff000000;
+  unsigned int tp2 = 0x80000000;
+  unsigned int uuf = uf << 1;
+  unsigned int ans;
+  if(((uuf & tp1) == tp1) && (uuf != tp1)){  //若该数为NaN
+	ans = uf;  //返回原数
+  }else{
+	ans = tp2 + uf;  //改变符号位
+  } 
+  return ans;
 }
 /* 
  * float_i2f - Return bit-level equivalent of expression (float) x
@@ -289,7 +323,35 @@ unsigned float_neg(unsigned uf) {
  *   Rating: 4
  */
 unsigned float_i2f(int x) {
-  return 2;
+  unsigned symb = x & 0x80000000;  //symb符号位
+  unsigned count = 0, exp;  //exp阶码
+  unsigned frac, tail, flag = 0;  //frag小数字段，tail为x中23位小数后的数，flag记录舍入时尾数是否进了位
+  if(x == 0) return symb;  //若为0，直接输出0
+  if(x < 0) x = -x;  //若x为负数，先变为正数
+  while((x & 0x80000000) != 0x80000000){  //用while循环找到最高位的1，从而得到exp的值
+	x = x << 1;
+	count++;
+  }
+  exp = 158 - count;
+
+  tail = x << 24;  //tail取24位尾数（包括首位的1）之后的数，即要被舍入的数
+  x = x >> 8;  //尾数部分重新移动至x的后24位
+  if(tail == 0x80000000){  //需要向偶数舍入
+	if(x & 1){  //若x尾数最后一位为1
+		frac = x + 1;  //进位
+		flag = 1;
+	}else  //若x尾数最后一位为0
+		frac = x;  //不进位
+  }
+  else if(tail < 0x80000000){  //需要向下舍入，即不进位
+	frac = x;
+  }else{  //需要向上舍入，即进位
+	frac = x + 1;
+	flag = 1;
+  }
+  if(flag && !(frac & 0x007fffff)) exp++;  //若尾数进了位并且进位后尾数为全0，则需要向阶码进位，即阶码+1
+
+  return symb + (exp << 23) + (frac & 0x007fffff);  //将符号位、阶码位和尾数位相加
 }
 /* 
  * float_twice - Return bit-level equivalent of expression 2*f for
@@ -303,5 +365,13 @@ unsigned float_i2f(int x) {
  *   Rating: 4
  */
 unsigned float_twice(unsigned uf) {
-  return 2;
+  unsigned symb = uf & 0x80000000;  //符号
+  unsigned exp = uf & 0x7f800000;  //阶码字段
+  unsigned frac = uf & 0x007fffff;  //小数字段
+  if(exp == 0x7f800000) return uf;  //若阶码为0，直接返回uf
+  if(exp != 0)  //若解码不为0
+	exp = exp + 0x00800000;  //阶码加1
+  else  //若阶码为0
+	frac = frac << 1;  //小数字段乘2
+  return symb + exp + frac;
 }
