@@ -368,10 +368,10 @@ unsigned float_twice(unsigned uf) {
   unsigned symb = uf & 0x80000000;  //符号
   unsigned exp = uf & 0x7f800000;  //阶码字段
   unsigned frac = uf & 0x007fffff;  //小数字段
-  if(exp == 0x7f800000) return uf;  //若阶码为0，直接返回uf
-  if(exp != 0)  //若解码不为0
+  if(exp == 0x7f800000) return uf;  //若阶码为全1，直接返回uf
+  if(exp != 0)  //若阶码不为全0
 	exp = exp + 0x00800000;  //阶码加1
-  else  //若阶码为0
+  else  //若阶码为全0
 	frac = frac << 1;  //小数字段乘2
   return symb + exp + frac;
 }
